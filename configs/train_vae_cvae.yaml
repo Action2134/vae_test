@@ -1,0 +1,20 @@
+# 条件 VAE (CVAE) 训练配置
+# 目标: "指定数字生成" - 条件注入的最小形态, 衔接 T2I
+# 超参与全连接版对齐, 只加条件输入, 公平对比
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/cvae"
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images/cvae"
+seed: 42
+
+model:
+  type: cvae
+  hidden_dim: 512
+  latent_dim: 16
+
+training:
+  epochs: 20
+  batch_size: 128
+  learning_rate: 1.0e-3
+  kl_beta: 1.0
+  log_steps: 100
+  max_steps: -1

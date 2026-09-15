@@ -1,0 +1,20 @@
+# 调试用配置: 只跑 1 步, 快速验证代码路径
+# 登录节点(CPU)也能跑, 用于逻辑调试
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+# checkpoint 只存 .pt, 存到 workspace_xd/ckpt/vae_test/debug
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/debug"
+# 效果图单独存到项目 output 目录, 不污染 ckpt
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images/debug"
+seed: 42
+
+model:
+  hidden_dim: 512
+  latent_dim: 16
+
+training:
+  epochs: 1
+  batch_size: 128
+  learning_rate: 1.0e-3
+  kl_beta: 1.0
+  log_steps: 1
+  max_steps: 1

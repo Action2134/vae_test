@@ -1,0 +1,11 @@
+# 训练输出 (模型 + 效果图)
+output/
+
+# 运行日志
+logs/
+
+# MNIST 数据已移到仓库外的公共目录 /public/home/liuhuan/workspace_xd/data
+
+# Python 缓存
+__pycache__/
+*.pyc

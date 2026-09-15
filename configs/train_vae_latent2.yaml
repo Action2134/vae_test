@@ -1,0 +1,20 @@
+# latent_dim=2 流形可视化专用配置
+# 目的不是重建清晰, 而是把 latent 压到 2 维方便画"地图"
+# 用全连接版(快), 2 维瓶颈下卷积优势不大
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/latent2"
+# 效果图单独存到项目 output 目录, ckpt 只放 .pt
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images/latent2"
+seed: 42
+
+model:
+  hidden_dim: 512
+  latent_dim: 2         # 关键: 压到 2 维, 每张图变成平面上的一个点
+
+training:
+  epochs: 20            # 2 维瓶颈信息量小, 多训几轮让点云结构充分展开
+  batch_size: 128
+  learning_rate: 1.0e-3
+  kl_beta: 1.0
+  log_steps: 100
+  max_steps: -1

@@ -1,0 +1,19 @@
+# VAE 训练配置 (MNIST 手写数字)
+# MNIST 数据放在 workspace 公共 data 目录 (多个项目共享)
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test"
+# 效果图单独存到项目 output 目录, ckpt 只放 .pt
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images"
+seed: 42
+
+model:
+  hidden_dim: 512
+  latent_dim: 16        # latent 空间维度, 调大重建更清晰, 调小(2)可画二维流形
+
+training:
+  epochs: 10
+  batch_size: 128
+  learning_rate: 1.0e-3
+  kl_beta: 1.0          # KL 项权重, >1 偏向标准正态(采样好), <1 偏向重建质量
+  log_steps: 50
+  max_steps: -1         # >0 时提前终止(调试用), -1 表示跑满 epochs

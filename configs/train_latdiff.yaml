@@ -1,0 +1,18 @@
+# Latent Diffusion 配置
+# 第一阶段产物: 冻结的普通 VAE (latent_dim=16), 只借它的编码器/解码器
+seed: 42
+vae_ckpt: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/vae_mnist.pt"
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/latdiff"
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images/latdiff"
+
+diffusion:
+  timesteps: 100        # 扩散步数 T: 加噪/去噪的总台阶数
+  hidden_dim: 128       # 去噪 MLP 宽度 (latent 才 16 维, 网络不用大)
+  time_dim: 64          # 时间步嵌入维度
+
+training:
+  epochs: 30
+  batch_size: 256
+  learning_rate: 2.0e-4
+  log_steps: 100

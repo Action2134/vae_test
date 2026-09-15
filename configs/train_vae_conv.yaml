@@ -1,0 +1,20 @@
+# 卷积版 VAE 训练配置 (对比 train_vae.yaml 的全连接版)
+# 卷积抓局部笔画结构, 生成图更锐利, 其余超参与全连接版对齐便于公平对比
+data_dir: "/public/home/liuhuan/workspace_xd/data"
+output_dir: "/public/home/liuhuan/workspace_xd/ckpt/vae_test/conv"
+# 效果图单独存到项目 output 目录, ckpt 只放 .pt
+image_dir: "/public/home/liuhuan/workspace_xd/vae_test/output/images/conv"
+seed: 42
+
+model:
+  type: conv            # conv=卷积版, 不写或 fc=全连接版
+  hidden_dim: 256       # 卷积版中为中间全连接层宽度
+  latent_dim: 16
+
+training:
+  epochs: 50            # 10 epoch 没训透, 笔画发软; 卷积版收敛慢, 加大训练量
+  batch_size: 128
+  learning_rate: 1.0e-3
+  kl_beta: 1.0
+  log_steps: 50
+  max_steps: -1
