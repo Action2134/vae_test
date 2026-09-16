@@ -14,8 +14,26 @@
 实验3 latent=2     把瓶颈压到2维, 可视化 latent 空间"地图"
 实验4 CVAE         加条件: one-hot 注入, 从"随机出图"到"指定数字出图"
 实验5 LatDiff      换生成引擎: randn 一步采 → diffusion 逐步去噪 (= SD 骨架)
-下一步             给去噪器加文本条件 → 迷你文字生图
+实验6 CondLatDiff  给去噪器加数字条件: one-hot 注入, 从"随机出数字"到"指定出数字"
+下一步             把 one-hot 换成文本向量 → 迷你文字生图
 ```
+
+### 完成状态总览 (截至当前)
+
+| 实验 | 状态 | SLURM job | ckpt | 效果图 |
+|------|------|-----------|------|--------|
+| 1 基础 VAE | ✅ | — | `vae_test/vae_mnist.pt` | `reconstruction/samples/interpolation.png` |
+| 2 卷积 VAE | ✅ | — | `vae_test/conv/` | `conv/`, `my_infer_conv/` |
+| 3 latent=2 流形 | ✅ | 212936 | `vae_test/latent2/` | `latent2/` |
+| 4 CVAE 条件生成 | ✅ | 212949 (rc=0) | `vae_test/cvae/` | `my_infer_cvae/cond_grid.png` |
+| 5 Latent Diffusion | ✅ | 213306 (rc=0) | `vae_test/latdiff/latdiff_mnist.pt` | `latdiff/samples_{diffusion,randn}.png` |
+| 6 条件 LatDiff (指定数字) | ✅ | 213885 (rc=0) | `vae_test/latdiff_cond/latdiff_cond_mnist.pt` | `latdiff_cond/cond_grid.png` |
+| 下一步 迷你文字生图 (T2I) | ⬜ 未开始 | — | — | — |
+
+- ckpt 根目录 `/public/home/liuhuan/workspace_xd/ckpt/`, 效果图根目录 `output/images/`
+- **版本管理**: 全部源码/配置/脚本/文档已提交并推送 `origin/main` (github.com/Action2134/vae_test), 工作区干净
+- **无在跑任务**: vae_test 相关 SLURM job 均已结束
+- **LatDiff 三件套分工**: `diffusion_latent.py` 造零件 (模型/算法) → `train_latdiff.py` 用零件训练 → `infer_latdiff.py` 拿训好的零件出图
 
 ---
 
@@ -210,13 +228,65 @@ diffusion 学到的是真实分布本身, 连尺度一起学对了。
 
 ---
 
+## 实验6: 条件 Latent Diffusion (class-conditional, 指定数字生成)
+
+### 目的
+实验5的去噪器是**无条件**的 (`forward(z_t, t)`), 生成什么数字纯靠噪声随机。
+本实验给它加**数字条件 y**, 从"随机出数字"升级到"**指定数字出数字**" ——
+把实验4 CVAE 的 one-hot 条件思想搬到扩散去噪器上, 也是通往 T2I 的第一级台阶。
+
+### 方法: one-hot 条件注入
+- 条件编码: 数字 k → one-hot 10 维向量 (`F.one_hot`), 消除整数输入的虚假数值邻近性
+- 注入位置: 去噪器入口 concat `[z_t(16) | temb(64) | onehot(y)(10)] = 90维 → Linear(90→128)`
+- 数学本质: one-hot 过第一层 Linear ≡ 从权重后 10 列"查出"第 k 列加进去,
+  即每个数字一列专属指令向量 (等价于一次 embedding 查表)
+- 训练: y = 真实标签 (**事实**), 教会网络"条件 k → 去噪出 k"
+- 推理: y = 用户指定 (**命令**), `sample(ys)` 每步拼 one-hot(ys), 把去噪轨迹导向数字 k
+
+### 代码结构 (新增 5 个文件, 原无条件版保留作对比)
+| 文件 | 职责 |
+|------|------|
+| `src/diffusion_latent_cond.py` | CondLatentDenoiser (入口拼 one-hot, 90维) + CondGaussianDiffusion (继承实验5, 只重写 training_loss/sample 带 y) |
+| `src/train_latdiff_cond.py` | encode_dataset 保留标签 (`for x, y`), 训练喂 (z0, y0) |
+| `src/infer_latdiff_cond.py` | `--digit N` 单数字 / 默认 10×10 网格 (每行一个数字) |
+| `configs/train_latdiff_cond.yaml` | num_classes=10, 输出到 _cond 目录 |
+| `scripts/run_train_latdiff_cond.sh` | SLURM: 训练成功后自动出网格图 |
+
+关键设计:
+- **继承复用**: CondGaussianDiffusion 继承 GaussianDiffusion, 调度数学/q_sample 原样复用, 只重写带 y 的两个方法
+- **参数量 sanity check**: 0.0455M → 0.047M, 多出的正是 one-hot 入口 10×128=1280 参数, 可验证维度对齐
+
+### 运行
+```bash
+cd /public/home/liuhuan/workspace_xd/vae_test
+sbatch scripts/run_train_latdiff_cond.sh     # 日志: logs/vae_latdiff_cond_<jobid>.out
+```
+冒烟: 登录节点 CPU 1 epoch 验证全链路 (标签保留/参数量/出图); 欠训图每行混杂属预期。
+
+### 结果 (job 213885, COMPLETED rc=0)
+- [x] 训练 30 epoch, loss 0.89 → 0.47 收敛
+- [x] `output/images/latdiff_cond/cond_grid.png` — 10×10 网格, **每行主导数字 = 指定标签** (条件生效)
+- [x] z 统计 std=0.759 (接近真实编码 0.823)
+- 诚实说明: 每行仍有约 10-20% 杂格 (个别非该行数字)。one-hot concat 是最朴素的注入方式,
+  条件信号有时压不过扩散噪声; 但对比冒烟 (1 epoch) 的完全混杂, 30 epoch 已明显学会条件。
+
+### 结论: 实验4 的条件思想 × 实验5 的生成引擎
+```
+实验4 CVAE:    one-hot 注入 decoder, randn 一步出图
+实验5 LatDiff: 无条件扩散去噪
+实验6 (本):    one-hot 注入扩散去噪器 = 条件思想 × 扩散引擎 => 指定数字生成
+下一步 T2I:    把 one-hot 换成文本向量 (+cross-attention) => 文字生图
+```
+
+---
+
 ## 下一步: 迷你文字生图
 
-给 `LatentDenoiser` 加条件输入 —— 把实验4 CVAE 里的 one-hot 升级为**文本向量**:
+在实验6 (条件扩散) 基础上, 把 one-hot 数字条件升级为**文本向量**:
 
 ```
-实验4 CVAE:   y=数字标签 → one-hot(10维) → 注入 decoder
-下一步 T2I:   "a handwritten 8" → 字符级编码 → 文本向量 → 注入去噪器
+实验6 CondLatDiff:  y=数字标签 → one-hot(10维) → 注入去噪器
+下一步 T2I:        “a handwritten 8” → 字符级编码 → 文本向量 → 注入去噪器 (+cross-attention)
 ```
 
 得到完整链路: 文本 + 纯噪声 → 条件扩散逐步去噪 → z → VAE decoder → 图。
